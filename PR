@@ -1,0 +1,549 @@
+Add docs UI + gated terminal tool execution via chat
+
+<code>✨ Enhancement</code> <code>📝 Documentation</code> <code>⚙️ Configuration changes</code> <code>🧪 Tests</code> <code>🕐 40+ Minutes</code>
+
+<img src="https://www.qodo.ai/wp-content/uploads/2025/11/light-grey-line.svg" height="10%" alt="Grey Divider">
+
+<details>
+<summary>AI Description</summary>
+
+<dl>
+<dd>
+<br/>
+
+><pre>
+>• Add docs section with sidebar/header/TOC and Markdown rendering.
+>• Enable chat to execute terminal commands when explicitly enabled via env.
+>• Introduce dashboard shell UI and update dependencies to support new pages.
+></pre>
+
+</dd>
+</dl>
+
+</details>
+
+<details>
+<summary>Diagram</summary>
+
+<dl>
+<dd>
+
+<br/>
+
+```mermaid
+graph TD
+  A(["Browser"]) --> B["Next.js app"] --> C["FastAPI /api/chat"]
+  B --> D["Docs renderer"] --> E[("Docs markdown")]
+  C --> F[/"TerminalTools"/]
+  C --> G{{"Ollama LLM"}}
+
+  subgraph Legend
+    direction LR
+    _ui["UI/Service"] ~~~ _store[("Content store")] ~~~ _tool[/"Tool"/] ~~~ _ext{{"External"}}
+  end
+```
+
+</dd>
+</dl>
+
+</details>
+
+
+
+
+<details>
+<summary>High-Level Assessment</summary>
+
+<dl>
+<dd>
+
+<br/>
+
+>The following are alternative approaches to this PR:
+
+<details>
+<summary><b>1. Structured tool-call protocol (no command parsing)</b></summary>
+
+<dl>
+<dd>
+
+- ➕ Avoids ambiguous parsing of user text (e.g., accidental &#x27;!&#x27;)
+- ➕ Easier to validate/authorize specific operations
+- ➕ Aligns with typical agent tool-call schemas
+- ➖ Requires frontend changes to send/receive structured tool intents
+- ➖ More work than the current lightweight UX
+
+</dd>
+</dl>
+
+</details>
+
+<details>
+<summary><b>2. Separate terminal endpoint usage (explicit UI action)</b></summary>
+
+<dl>
+<dd>
+
+- ➕ Clear user intent and safer UX (click-to-run)
+- ➕ Keeps chat endpoint focused on LLM responses
+- ➖ Less convenient than inline &#x27;!cmd&#x27; messages
+- ➖ More UI surface area to build/maintain
+
+</dd>
+</dl>
+
+</details>
+
+>**Recommendation:** Current approach is acceptable for a fast iteration, but consider moving toward a structured tool-call schema or an explicit terminal UI action to reduce ambiguity and improve safety/authorization over time.
+
+</dd>
+</dl>
+
+</details>
+
+<details>
+<summary> Files changed (26) <code> +3769 / -306 </code> · 5 not counted </summary>
+
+<dl>
+<dd>
+
+<br/>
+
+<details>
+<summary>Enhancement (17) <code> +853 / -285 </code></summary>
+
+<dl>
+<dd>
+
+<details>
+<summary>routes.py<code>Gate terminal execution inside /api/chat and add command extraction</code> <code>+329/-161</code></summary>
+
+<br/>
+
+>Gate terminal execution inside /api/chat and add command extraction
+>
+><pre>
+>• Adds &#x27;extract_command()&#x27; to detect shell commands via fenced &#x27;&#x27;&#x27;bash/sh&#x27;&#x27;&#x27; blocks or &#x27;!&#x27; prefix. Updates &#x27;/api/chat&#x27; to optionally execute terminal commands when &#x27;use_tools&#x27; is set and &#x27;ENABLE_TERMINAL_TOOL&#x27; is enabled, otherwise falls back to LLM generation. Expands docstrings across endpoints and returns tool call metadata in the chat response.
+></pre>
+>
+><a href='https://github.com/clauderiks/clriks/pull/110/files#diff-ebb9bdfb1ec509be1a54fab5a4cc0458847d5214d65492f7f8d5b2621adad3c5'>backend/api/routes.py</a>
+
+</details>
+
+<details>
+<summary>page.tsx<code>Add docs slug page that loads markdown from disk</code> <code>+33/-0</code></summary>
+
+<br/>
+
+>Add docs slug page that loads markdown from disk
+>
+><pre>
+>• Creates a dynamic docs route that reads &#x27;docs/&lt;slug&gt;.md&#x27; from the repo and renders it via &#x27;MarkdownViewer&#x27;. Enables simple file-backed documentation pages.
+></pre>
+>
+><a href='https://github.com/clauderiks/clriks/pull/110/files#diff-b9f5f8bac33ca7acb919f023710c63891ddd0b6adde83715f12e3d3aa550f282'>frontend/app/docs/[slug]/page.tsx</a>
+
+</details>
+
+<details>
+<summary>layout.tsx<code>Add docs layout with header, sidebar, and TOC</code> <code>+51/-0</code></summary>
+
+<br/>
+
+>Add docs layout with header, sidebar, and TOC
+>
+><pre>
+>• Introduces a dedicated docs layout composing &#x27;DocsHeader&#x27;, &#x27;DocsSidebar&#x27;, and &#x27;DocsTOC&#x27; around the main content area.
+></pre>
+>
+><a href='https://github.com/clauderiks/clriks/pull/110/files#diff-b6f1ed197f98090ad5e8a74be07bb886644919215eabbcc51557f55edb5b007d'>frontend/app/docs/layout.tsx</a>
+
+</details>
+
+<details>
+<summary>page.tsx<code>Switch home page to the new Dashboard shell</code> <code>+2/-9</code></summary>
+
+<br/>
+
+>Switch home page to the new Dashboard shell
+>
+><pre>
+>• Replaces the direct chat rendering on the root page with the new &#x27;Dashboard&#x27; layout component.
+></pre>
+>
+><a href='https://github.com/clauderiks/clriks/pull/110/files#diff-971bce90bbbf73bd7f27b4698ef6596bfc9d2fd8cbb6995f8ed3c7f7c948541d'>frontend/app/page.tsx</a>
+
+</details>
+
+<details>
+<summary>Chat.tsx<code>Render backend tool-call output in chat messages</code> <code>+148/-115</code></summary>
+
+<br/>
+
+>Render backend tool-call output in chat messages
+>
+><pre>
+>• Extends chat message model to include &#x27;toolCalls&#x27; returned by the backend. Displays tool execution output (stdout/stderr) in a monospace block and updates the input placeholder to document &#x27;!&lt;command&gt;&#x27; usage.
+></pre>
+>
+><a href='https://github.com/clauderiks/clriks/pull/110/files#diff-78d0a3eec24eb01715464f881793546e4a81e7edb27db6b297942cfc2265ec55'>frontend/components/Chat.tsx</a>
+
+</details>
+
+<details>
+<summary>AIAssistant.tsx<code>Add placeholder AI assistant component file</code> <sub>not counted</sub></summary>
+
+<br/>
+
+>Add placeholder AI assistant component file
+>
+><pre>
+>• Adds an AI assistant component file placeholder (currently empty).
+></pre>
+>
+><a href='https://github.com/clauderiks/clriks/pull/110/files#diff-2e37e45a07d75cb00fc0a6e230f9e293158ec02190df11fb314046bccdcf4d74'>frontend/components/ai/AIAssistant.tsx</a>
+
+</details>
+
+<details>
+<summary>DocsHeader.tsx<code>Add docs header UI controls</code> <code>+45/-0</code></summary>
+
+<br/>
+
+>Add docs header UI controls
+>
+><pre>
+>• Adds a docs header with a search input and icon buttons (theme/GitHub) using &#x27;lucide-react&#x27;.
+></pre>
+>
+><a href='https://github.com/clauderiks/clriks/pull/110/files#diff-6f6fc1b2764ae818e1dd883edb0460d93993f9306d8067d6003d931afd40a9e7'>frontend/components/docs/DocsHeader.tsx</a>
+
+</details>
+
+<details>
+<summary>DocsSidebar.tsx<code>Add docs sidebar navigation groups</code> <code>+80/-0</code></summary>
+
+<br/>
+
+>Add docs sidebar navigation groups
+>
+><pre>
+>• Implements a client-side docs sidebar with grouped navigation links (Getting Started, Developer, Security).
+></pre>
+>
+><a href='https://github.com/clauderiks/clriks/pull/110/files#diff-cb4b8c016f05a79ca5c8282ca40374fccef55c13ee076fc8080e62857a48fda4'>frontend/components/docs/DocsSidebar.tsx</a>
+
+</details>
+
+<details>
+<summary>DocsTOC.tsx<code>Add basic table-of-contents sidebar</code> <code>+56/-0</code></summary>
+
+<br/>
+
+>Add basic table-of-contents sidebar
+>
+><pre>
+>• Adds a static TOC panel linking to common headings using slugified anchors.
+></pre>
+>
+><a href='https://github.com/clauderiks/clriks/pull/110/files#diff-c97e8814fa94b00f4a9456acf9df9f893515b0cf23f4113ab0cd8641471d1459'>frontend/components/docs/DocsTOC.tsx</a>
+
+</details>
+
+<details>
+<summary>MarkdownViewer.tsx<code>Add Markdown renderer with GFM + heading slugs/links</code> <code>+31/-0</code></summary>
+
+<br/>
+
+>Add Markdown renderer with GFM + heading slugs/links
+>
+><pre>
+>• Introduces &#x27;react-markdown&#x27; rendering with &#x27;remark-gfm&#x27;, &#x27;rehype-slug&#x27;, and &#x27;rehype-autolink-headings&#x27; for GitHub-flavored markdown and linkable headings.
+></pre>
+>
+><a href='https://github.com/clauderiks/clriks/pull/110/files#diff-e96de739c6b9a74d618fc4e70fa814452613c08600e7c73929bc49d9709ca4f8'>frontend/components/docs/MarkdownViewer.tsx</a>
+
+</details>
+
+<details>
+<summary>Editor.tsx<code>Add placeholder editor component file</code> <sub>not counted</sub></summary>
+
+<br/>
+
+>Add placeholder editor component file
+>
+><pre>
+>• Adds an editor component file placeholder (currently empty).
+></pre>
+>
+><a href='https://github.com/clauderiks/clriks/pull/110/files#diff-cb4a18affc455266021a4eea1350d96ef73c21f428bb9c77043276aaee36f9a5'>frontend/components/editor/Editor.tsx</a>
+
+</details>
+
+<details>
+<summary>GitPanel.tsx<code>Add placeholder Git panel component file</code> <sub>not counted</sub></summary>
+
+<br/>
+
+>Add placeholder Git panel component file
+>
+><pre>
+>• Adds a Git panel component file placeholder (currently empty).
+></pre>
+>
+><a href='https://github.com/clauderiks/clriks/pull/110/files#diff-a0dedc39037c61ee45e779b23eb43eac3cbbb510d1262c9ed80be1b87b5e1a53'>frontend/components/git/GitPanel.tsx</a>
+
+</details>
+
+<details>
+<summary>Header.tsx<code>Add Dashboard header bar</code> <code>+20/-0</code></summary>
+
+<br/>
+
+>Add Dashboard header bar
+>
+><pre>
+>• Adds a simple header bar for the dashboard shell with basic navigation/status text.
+></pre>
+>
+><a href='https://github.com/clauderiks/clriks/pull/110/files#diff-9e26cbf549c2d8183f7104be45cf8c19aa9ea191bea024fead32a5f7f30389a7'>frontend/components/header/Header.tsx</a>
+
+</details>
+
+<details>
+<summary>Dashboard.tsx<code>Add Dashboard layout scaffold (sidebar + header + main)</code> <code>+33/-0</code></summary>
+
+<br/>
+
+>Add Dashboard layout scaffold (sidebar + header + main)
+>
+><pre>
+>• Creates a grid-based dashboard layout combining &#x27;Sidebar&#x27; and &#x27;Header&#x27; with a centered main content placeholder.
+></pre>
+>
+><a href='https://github.com/clauderiks/clriks/pull/110/files#diff-0f5a29ba98a6eea4dcd0ed334e8b6bd6f0d621023589fbf9451099a5efb98b75'>frontend/components/layout/Dashboard.tsx</a>
+
+</details>
+
+<details>
+<summary>Preview.tsx<code>Add placeholder preview component file</code> <sub>not counted</sub></summary>
+
+<br/>
+
+>Add placeholder preview component file
+>
+><pre>
+>• Adds a preview component file placeholder (currently empty).
+></pre>
+>
+><a href='https://github.com/clauderiks/clriks/pull/110/files#diff-914e73957cfe9ddfa2fd1356734aa2909d191ef485236d8e4c92eae225767e70'>frontend/components/preview/Preview.tsx</a>
+
+</details>
+
+<details>
+<summary>Sidebar.tsx<code>Add static sidebar navigation scaffold</code> <code>+25/-0</code></summary>
+
+<br/>
+
+>Add static sidebar navigation scaffold
+>
+><pre>
+>• Adds a static sidebar listing dashboard sections (Projects, Explorer, AI, Preview, Terminal, Git, Settings).
+></pre>
+>
+><a href='https://github.com/clauderiks/clriks/pull/110/files#diff-8df0c5a63e8f0222a66004f7535b08d6e1580129c2bc3a2982616664c9afb6d0'>frontend/components/sidebar/Sidebar.tsx</a>
+
+</details>
+
+<details>
+<summary>Terminal.tsx<code>Add placeholder terminal component file</code> <sub>not counted</sub></summary>
+
+<br/>
+
+>Add placeholder terminal component file
+>
+><pre>
+>• Adds a terminal component file placeholder (currently empty).
+></pre>
+>
+><a href='https://github.com/clauderiks/clriks/pull/110/files#diff-25f603922fed5ac8566f899412e486de0474d629aacd880774420696f1b32996'>frontend/components/terminal/Terminal.tsx</a>
+
+</details>
+
+</dd>
+</dl>
+
+</details>
+
+<details>
+<summary>Tests (1) <code> +1 / -1 </code></summary>
+
+<dl>
+<dd>
+
+<details>
+<summary>test_fortify_workflow.py<code>Update expected Fortify schedule cron expression</code> <code>+1/-1</code></summary>
+
+<br/>
+
+>Update expected Fortify schedule cron expression
+>
+><pre>
+>• Adjusts the asserted cron string for the schedule trigger to match the updated workflow timing.
+></pre>
+>
+><a href='https://github.com/clauderiks/clriks/pull/110/files#diff-115eaa71ec4e0001f0274f47c2ae554573b46fdbfb2230b85a9fa82b901ff987'>tests/test_fortify_workflow.py</a>
+
+</details>
+
+</dd>
+</dl>
+
+</details>
+
+<details>
+<summary>Documentation (4) <code> +44 / -0 </code></summary>
+
+<dl>
+<dd>
+
+<details>
+<summary>api.md<code>Add initial API docs page content</code> <code>+9/-0</code></summary>
+
+<br/>
+
+>Add initial API docs page content
+>
+><pre>
+>• Adds a starter API documentation markdown file.
+></pre>
+>
+><a href='https://github.com/clauderiks/clriks/pull/110/files#diff-1ea99a312c26e685ed41495762718769aaac89cbd051aa625c59b05da4e704e1'>frontend/docs/api.md</a>
+
+</details>
+
+<details>
+<summary>introduction.md<code>Add Getting Started introduction doc</code> <code>+14/-0</code></summary>
+
+<br/>
+
+>Add Getting Started introduction doc
+>
+><pre>
+>• Adds introductory Getting Started documentation with feature bullets.
+></pre>
+>
+><a href='https://github.com/clauderiks/clriks/pull/110/files#diff-478962ae74722ecb455b78afc1e9852a76658343a4569c2441700dce94213909'>frontend/docs/getting-started/introduction.md</a>
+
+</details>
+
+<details>
+<summary>introduction.md<code>Add main documentation introduction page</code> <code>+14/-0</code></summary>
+
+<br/>
+
+>Add main documentation introduction page
+>
+><pre>
+>• Adds a high-level documentation landing markdown page.
+></pre>
+>
+><a href='https://github.com/clauderiks/clriks/pull/110/files#diff-525cedba2d3fc529f6c630da7d406b9721de77c533fc8d6657e90568809248a8'>frontend/docs/introduction.md</a>
+
+</details>
+
+<details>
+<summary>security.md<code>Add basic security documentation page</code> <code>+7/-0</code></summary>
+
+<br/>
+
+>Add basic security documentation page
+>
+><pre>
+>• Adds a starter security guidance markdown file.
+></pre>
+>
+><a href='https://github.com/clauderiks/clriks/pull/110/files#diff-add2021dbb13e1636ec9236642281414a87ee779c0344170f2fbe6e0c08a820e'>frontend/docs/security.md</a>
+
+</details>
+
+</dd>
+</dl>
+
+</details>
+
+<details>
+<summary>Other (4) <code> +2871 / -20 </code></summary>
+
+<dl>
+<dd>
+
+<details>
+<summary>settings.py<code>Add ENABLE_TERMINAL_TOOL runtime setting</code> <code>+19/-18</code></summary>
+
+<br/>
+
+>Add ENABLE_TERMINAL_TOOL runtime setting
+>
+><pre>
+>• Introduces &#x27;enable_terminal_tool&#x27; configuration flag loaded from &#x27;ENABLE_TERMINAL_TOOL&#x27; env var to control terminal tool availability.
+></pre>
+>
+><a href='https://github.com/clauderiks/clriks/pull/110/files#diff-4314e7383e7a3dafb3cef9aa2871fd320a1685fd2524af00b76814bddb3c0dd0'>backend/config/settings.py</a>
+
+</details>
+
+<details>
+<summary>next-env.d.ts<code>Include generated Next.js typed routes reference</code> <code>+2/-1</code></summary>
+
+<br/>
+
+>Include generated Next.js typed routes reference
+>
+><pre>
+>• Adds a reference to &#x27;.next/types/routes.d.ts&#x27; to enable typed routes support.
+></pre>
+>
+><a href='https://github.com/clauderiks/clriks/pull/110/files#diff-41f6c1d0c42d7e7d48b5bb119c1baa6840d7ebd94823012ae9a5400999584b9a'>frontend/next-env.d.ts</a>
+
+</details>
+
+<details>
+<summary>package-lock.json<code>Lockfile update for new docs/UI dependencies</code> <code>+2844/-0</code></summary>
+
+<br/>
+
+>Lockfile update for new docs/UI dependencies
+>
+><pre>
+>• Adds/updates the lockfile to include markdown rendering and icon dependencies (react-markdown/remark/rehype, lucide-react) and their transitive packages.
+></pre>
+>
+><a href='https://github.com/clauderiks/clriks/pull/110/files#diff-4a2d9aa3e849b134993936ca81b83fb139edd2b0218077ab0f403b8c4803c62a'>frontend/package-lock.json</a>
+
+</details>
+
+<details>
+<summary>package.json<code>Add markdown + icon dependencies for docs UI</code> <code>+6/-1</code></summary>
+
+<br/>
+
+>Add markdown + icon dependencies for docs UI
+>
+><pre>
+>• Extends dependencies to include &#x27;react-markdown&#x27;, &#x27;remark-gfm&#x27;, &#x27;rehype-slug&#x27;, &#x27;rehype-autolink-headings&#x27;, and &#x27;lucide-react&#x27; alongside existing axios/next/react.
+></pre>
+>
+><a href='https://github.com/clauderiks/clriks/pull/110/files#diff-da6498268e99511d9ba0df3c13e439d10556a812881c9d03955b2ef7c6c1c655'>frontend/package.json</a>
+
+</details>
+
+</dd>
+</dl>
+
+</details>
+
+</dd>
+</dl>
+
+</details>

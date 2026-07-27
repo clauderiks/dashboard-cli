@@ -1,0 +1,106 @@
+{
+  "policy_id": "riks-autofix-loop-v1",
+  "name": "RIKS Autonomous Fix & Monitor Policy",
+  "description": "Chính sách điều khiển agent: tự động kiểm tra - sửa lỗi - kiểm tra lại theo vòng lặp cho đến khi build/test thành công, kèm cấu hình giám sát log thực thi và trạng thái GitHub.",
+  "version": "1.0.0",
+
+  "agent_loop": {
+    "pipeline": ["plan", "code", "run", "observe", "patch"],
+    "description": "Mỗi vòng lặp chạy đủ 5 bước. Nếu 'observe' phát hiện lỗi -> 'patch' -> quay lại 'run' từ đầu (không nhảy bước).",
+
+    "trigger": {
+      "on_error": true,
+      "on_test_fail": true,
+      "on_build_fail": true,
+      "on_lint_fail": false
+    },
+
+    "restart_strategy": {
+      "mode": "restart_from_run",
+      "comment": "Sau khi patch xong, luôn chạy lại toàn bộ kiểm tra (run -> observe) từ đầu, không chỉ kiểm tra phần vừa sửa."
+    },
+
+    "termination_conditions": {
+      "success": {
+        "all_tests_passed": true,
+        "build_exit_code": 0,
+        "no_open_errors": true
+      },
+      "stop_and_escalate": {
+        "max_iterations": 15,
+        "max_duration_minutes": 30,
+        "same_error_repeated": 3,
+        "action": "pause_and_notify_user"
+      }
+    },
+
+    "patch_rules": {
+      "scope": "minimal_diff",
+      "allow_dependency_changes": true,
+      "allow_file_deletion": false,
+      "require_sandbox_isolation": true,
+      "auto_commit": false,
+      "auto_commit_on_success_only": true
+    },
+
+    "logging_per_iteration": {
+      "record": ["timestamp", "iteration_index", "step", "error_summary", "diff_applied", "result"],
+      "keep_history": true
+    }
+  },
+
+  "monitoring_dashboard": {
+    "feature": "execution_log_viewer",
+    "description": "Màn hình theo dõi nhật ký thực thi lệnh theo thời gian thực, dạng terminal log stream.",
+    "ui": {
+      "style": "dark_terminal",
+      "font": "JetBrains Mono",
+      "border_radius": 0,
+      "live_stream": true,
+      "auto_scroll": true
+    },
+    "log_sources": [
+      {
+        "id": "agent_loop",
+        "label": "Agent Loop",
+        "level": ["info", "warn", "error", "patch"]
+      },
+      {
+        "id": "shell_commands",
+        "label": "Command Execution",
+        "capture": ["stdin_command", "stdout", "stderr", "exit_code", "duration_ms"]
+      },
+      {
+        "id": "github_activity",
+        "label": "GitHub",
+        "capture_events": [
+          "push",
+          "commit_created",
+          "workflow_run.started",
+          "workflow_run.completed",
+          "pull_request.opened",
+          "check_run.status"
+        ]
+      }
+    ],
+    "filters": ["by_iteration", "by_level", "by_source", "by_timerange"],
+    "export": ["json", "txt"]
+  },
+
+  "github_integration": {
+    "track_start_of_execution": true,
+    "events_watched": [
+      "workflow_run.requested",
+      "workflow_run.in_progress",
+      "workflow_run.completed"
+    ],
+    "on_workflow_start": {
+      "log_event": true,
+      "notify_dashboard": true
+    },
+    "on_workflow_fail": {
+      "feed_into_agent_loop": true,
+      "comment": "Nếu GitHub Actions fail, log lỗi được đưa ngược vào bước 'observe' của agent loop."
+    }
+  }
+}
