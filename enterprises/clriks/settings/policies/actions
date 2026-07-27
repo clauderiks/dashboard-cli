@@ -1,0 +1,33 @@
+{
+  "name": "clriks Enterprise GitHub Actions Policy",
+  "enabled": true,
+  "enforcement": "active",
+  "github_actions": {
+    "enabled": true,
+    "allow_actions": "selected"
+  },
+  "allowlist": [
+    "actions/*",
+    "github/*",
+    "clriks/*",
+    "actions/checkout@v4",
+    "actions/setup-node@v4",
+    "actions/setup-python@v5",
+    "actions/cache@v4",
+    "actions/upload-artifact@v4",
+    "actions/download-artifact@v4",
+    "github/codeql-action/*"
+  ],
+  "blocklist": [],
+  "reusable_workflows": {
+    "allow": [
+      "actions/*",
+      "github/*",
+      "clriks/*"
+    ]
+  },
+  "artifact_attestations": {
+    "enabled": true
+  },
+  "default": "deny"
+}
