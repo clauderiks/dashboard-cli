@@ -1,0 +1,120 @@
+# Môi trường CI
+
+Bộ thu thập dữ liệu của Buildkite Test Engine tự động phát hiện các môi trường tích hợp liên tục (CI) phổ biến.
+Nếu có sẵn, các công cụ thu thập kết quả kiểm thử sẽ thu thập thông tin về các lần chạy kiểm thử của bạn, chẳng hạn như tên nhánh và ID bản dựng.
+Các công cụ thu thập dữ liệu kiểm thử thu thập thông tin từ các môi trường CI sau:
+
+- [Buildkite](/docs/pipelines/configure/tests/test-collection/ci-environments#buildkite)
+- [CircleCI](/docs/pipelines/configure/tests/test-collection/ci-environments#circleci)
+- [Các hành động của GitHub](/docs/pipelines/configure/tests/test-collection/ci-environments#github-actions)
+
+Nếu bạn chạy các bộ thu thập kiểm thử bên trong [container](/docs/pipelines/configure/tests/test-collection/ci-environments#containers-and-test-collectors) hoặc sử dụng một hệ thống CI khác, bạn phải thiết lập các biến để báo cáo chi tiết CI của mình cho Buildkite.
+
+Nếu bạn không sử dụng trình thu thập kiểm thử, hãy xem [Nhập JSON](/docs/pipelines/configure/tests/test-collection/importing-json) và [Nhập JUnit XML](/docs/pipelines/configure/tests/test-collection/importing-junit-xml) để tìm hiểu cách cung cấp dữ liệu môi trường chạy.
+
+## Môi trường chạy
+
+### Yêu cầu
+
+- `run_env[key]`: Mã định danh của một lần chạy, có thể giống nhau trên nhiều lần tải lên; thường là ID bản dựng.
+
+### Khuyến khích
+
+Nếu bạn tự thiết lập các biến môi trường, chúng tôi đặc biệt khuyên bạn nên thiết lập các biến sau:
+
+- `run_env[branch]`: Gửi nhánh hoặc tham chiếu cho bản dựng này, cho phép bạn lọc dữ liệu theo nhánh.
+- `run_env[commit_sha]`: Gửi mã băm của commit cho đầu nhánh, cho phép tự động phát hiện các lỗi kiểm thử không ổn định trong quá trình xây dựng.
+- `run_env[message]`: Chuyển tiếp thông báo commit cho đầu nhánh, giúp bạn dễ dàng xác định các lần chạy khác nhau.
+- `run_env[url]`: Cung cấp URL cho bản dựng trên nhà cung cấp CI của bạn, giúp bạn có một liên kết tiện dụng quay lại bản dựng CI.
+
+## Thùng chứa và dụng cụ thu thập mẫu thử
+
+Nếu bạn đang sử dụng container trong hệ thống CI của mình, thì các biến môi trường được sử dụng bởi các trình thu thập kiểm thử có thể không được hiển thị cho các container đó theo mặc định.
+Hãy đảm bảo xuất các biến môi trường CI và mã thông báo API Buildkite của bạn sang các bản dựng và kiểm thử được đóng gói trong container.
+
+Ví dụ, theo mặc định, Docker không nhận các biến môi trường của máy chủ.
+Để chuyển các tham số đó vào vùng chứa Docker, hãy sử dụng tùy chọn `--env`:
+
+```
+  docker run \
+    --env BUILDKITE_ANALYTICS_TOKEN \
+    --env BUILDKITE_BUILD_ID \
+    --env BUILDKITE_BUILD_NUMBER \
+    --env BUILDKITE_JOB_ID \
+    --env BUILDKITE_BRANCH \
+    --env BUILDKITE_COMMIT \
+    --env BUILDKITE_MESSAGE \
+    --env BUILDKITE_BUILD_URL \
+    bundle exec rspec
+```
+
+Hãy xem lại các phần sau đây để biết các biến môi trường mà người thu thập dữ liệu thử nghiệm mong đợi.
+
+## Buildkite
+
+Trong quá trình chạy pipeline Buildkite, các trình thu thập kiểm thử tải thông tin từ các biến môi trường sau và các trình nhập kiểm thử sử dụng các tên trường sau:
+
+
+
+| Tên trường | Biến môi trường | Mô tả |
+| --- | --- | --- |
+| `run_env[branch]` | `BUILDKITE_BRANCH` | Nhánh hoặc tham chiếu cho bản dựng này. |
+| `run_env[commit_sha]` | `BUILDKITE_COMMIT` | Mã băm của commit cho đầu nhánh. |
+| `run_env[job_id]` | `BUILDKITE_JOB_ID` | UUID của công việc. |
+| `run_env[key]` | `BUILDKITE_BUILD_ID` | UUID của bản dựng. |
+| `run_env[message]` | `BUILDKITE_MESSAGE` | Thông báo commit cho đầu nhánh. |
+| `run_env[number]` | `BUILDKITE_BUILD_NUMBER` | Số bản dựng. |
+| `run_env[url]` | `BUILDKITE_BUILD_URL` | URL để xây dựng trên Buildkite. |
+
+
+
+## CircleCI
+
+Trong quá trình chạy quy trình CircleCI, các trình thu thập kiểm thử tải thông tin từ các biến môi trường sau và các trình nhập kiểm thử sử dụng các tên trường sau:
+
+
+
+| Tên trường | Biến môi trường | Mô tả |
+| --- | --- | --- |
+| `run_env[branch]` | `CIRCLE_BRANCH` | Nhánh hoặc tham chiếu đang được xây dựng. |
+| `run_env[commit_sha]` | `CIRCLE_SHA1` | Mã băm của commit cho đầu nhánh. |
+| `run_env[key]` | `CIRCLE_WORKFLOW_ID` `CIRCLE_BUILD_NUM` | Mã định danh duy nhất cho lần chạy quy trình công việc và số thứ tự của công việc, mỗi mã được phân tách bằng dấu gạch ngang. Tức là, `$CIRCLE_WORKFLOW_ID-$CIRCLE_BUILD_NUM`. |
+| `run_env[url]` | `CIRCLE_BUILD_URL` | URL cho công việc trên CircleCI. |
+
+
+
+## GitHub Actions
+
+Trong quá trình chạy luồng công việc GitHub Actions, các trình thu thập kiểm thử tải thông tin từ các biến môi trường sau và các trình nhập kiểm thử sử dụng các tên trường sau:
+
+
+
+| Tên trường | Biến môi trường | Mô tả |
+| --- | --- | --- |
+| `run_env[branch]` | `GITHUB_REF_NAME` | Tham chiếu (nhánh hoặc thẻ) đã kích hoạt quá trình chạy quy trình công việc. |
+| `run_env[commit_sha]` | `GITHUB_SHA` | Mã băm của commit cho đầu nhánh. |
+| `run_env[key]` | `GITHUB_ACTION` `GITHUB_RUN_NUMBER` `GITHUB_RUN_ATTEMPT` | Tên của hành động đang chạy hoặc ID bước của nó, tổng số lần chạy của quy trình công việc và số lần thử chạy quy trình công việc, mỗi phần được phân tách bằng dấu gạch ngang. Tức là, `$GITHUB_ACTION-$GITHUB_RUN_NUMBER-$GITHUB_RUN_ATTEMPT`. |
+| `run_env[number]` | `GITHUB_RUN_ID` | Số duy nhất cho lần chạy quy trình công việc. |
+| `run_env[url]` | `GITHUB_REPOSITORY` | Chủ sở hữu kho lưu trữ và tên kho lưu trữ. |
+
+
+
+## Các nhà cung cấp CI khác
+
+Nếu bạn đang sử dụng các nhà cung cấp CI khác (hoặc [container](#containers-and-test-collectors)), thì hãy thiết lập các biến môi trường cho bộ thu thập kiểm thử để thu thập thông tin về các bản dựng và bài kiểm thử của bạn.
+Nếu bạn không thiết lập các biến môi trường này, thì Test Engine sẽ thiếu các thông tin cần thiết để tạo ra các báo cáo hữu ích.
+
+Mỗi biến môi trường tương ứng với một khóa `run_env` trong tải trọng `https://analytics-api.buildkite.com/v1/uploads`. Hãy đọc [Nhập JSON](/docs/pipelines/configure/tests/test-collection/importing-json) để tìm hiểu cách các khóa này được sử dụng để thực hiện các cuộc gọi API.
+
+
+
+| Tên trường | Biến môi trường | Mô tả |
+| --- | --- | --- |
+| `run_env[branch]` | `BUILDKITE_ANALYTICS_BRANCH` | Một nhánh hoặc tham chiếu kiểm soát phiên bản cho lần chạy này. Ví dụ: `main`, `ref/heads/develop`, `JIRA-3494-fix-off-by-one-error` |
+| `run_env[commit_sha]` | `BUILDKITE_ANALYTICS_SHA` | Mã định danh duy nhất cho phiên bản kiểm soát phiên bản của lần chạy này. Ví dụ: `26a5144c`, `49239:a94f28be2e6e`, `26916` |
+| `run_env[job_id]` | `BUILDKITE_ANALYTICS_JOB_ID` | Mã định danh cho một công việc trong quá trình xây dựng. Ví dụ: `build_stage_1`, `smoke-test`, `publish` |
+| `run_env[key]` | `BUILDKITE_ANALYTICS_KEY` | Một khóa duy nhất cho lần chạy bộ kiểm thử này. Khóa này có thể được sử dụng lại trên nhiều lần tải lên để nhóm chúng thành một lần chạy duy nhất. Ví dụ: `c5636a53-b2d7-4224-92ee-1677b3e76910` |
+| `run_env[message]` | `BUILDKITE_ANALYTICS_MESSAGE` | Thông báo commit hoặc mô tả khác về bản dựng. Ví dụ: `Sửa lỗi lệch một lỗi` |
+| `run_env[number]` | `BUILDKITE_ANALYTICS_NUMBER` | Bộ đếm cho bản dựng này. Số này phải là duy nhất cho mỗi khóa bản dựng, nhưng không nhất thiết phải là duy nhất trên toàn cầu. Ví dụ: `0`, `1`, `4` |
+| `run_env[url]` | `BUILDKITE_ANALYTICS_URL` | Một URL liên kết đến bản dựng trong hệ thống CI của bạn. Ví dụ: `https://ci.example.com/project1/runs/a086005a/attempts/4` |
+
